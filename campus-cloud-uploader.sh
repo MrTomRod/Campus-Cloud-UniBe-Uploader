@@ -138,10 +138,26 @@ fi
 
 for i in "${email_array[@]}"
   do
-    echo "Sharing with $i..."
-    OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+    # Does email $i belong to a regular user? Search for email in database.
+    OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
+    user_id="$(echo $OUTPUT | jq '.items | .[0] | .id' )"
 
-    # Confirm the file has been shared.
-    recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
-    if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with $i."; else echo "ERROR: The file was NOT shared with $i!"; fi
+    # If UserID is a number...
+    if [ "$user_id" -eq "$user_id" ] 2>/dev/null; then
+      # ...email belongs to regular user.
+      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+
+      # Confirm the file has been shared.
+      recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
+      if [ "$user_id" == "$recipient_id" ]; then echo "The file was successfully shared with user $i."; else echo "ERROR: The file was NOT shared with user $i!"; fi
+
+    else
+      # ...email does not belong to external user.
+      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+
+      # Confirm the file has been shared.
+      recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
+      if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
+
+    fi
   done
