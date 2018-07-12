@@ -1,4 +1,6 @@
 #!/bin/bash
+# VERSION: 1.1
+
 # REQUIREMENTS:
 # jq (JSON parser)
 
