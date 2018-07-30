@@ -34,7 +34,7 @@ The university's campus cloud is based on [Micro Focus Filr](https://www.microfo
 
 # Changelog
     v1.0: Initial release
-    v1.1: Files can now be shared with anyone, whether or not the person has a CampusCloud account or belongs to the university.
+    v1.1: Files can now be shared with anyone, whether or not the person has a CampusCloud account or belongs to the university
     v1.2: Added option to upload folders
 
 # Lincence
