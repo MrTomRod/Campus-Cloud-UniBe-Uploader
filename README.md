@@ -1,13 +1,13 @@
 # Campus-Cloud-UniBe-Uploader
-Upload single files to [campuscloud.unibe.ch](https://campuscloud.unibe.ch/) with this simple bash script!
+Upload a file or a folder to [campuscloud.unibe.ch](https://campuscloud.unibe.ch/) with this simple bash script!
 
 How to use the script to upload a file:
 
 `./campus-cloud-uploader.sh -l file.zip`
 
-It will prompt for your campus accounts username and password. The new file will be inside a new folder named: upload-date_username_random-letters (for example "2018.07.05-18.29.09_ueli_thaxBXx").
+It will prompt for your campus accounts username and password. Next, it will ask what name the top folder should have, suggesting it begin with the current date (for example "2018.07.05-18.29.09_").
 
-The script also supports sharing the file with others, even users outside the university:
+The script also supports sharing the uploaded file(s) with others, even users outside the university:
 
 `./campus-cloud-uploader.sh -l file.zip -e u1@example.com,u2@example.com -d 30`
 
@@ -27,6 +27,7 @@ Fedora: `sudo dnf install jq`
 - Doesn't require a browser to upload. Very convenient and very fast on clusters. :)
 - Requires only elementary things like bash, curl and jq.
 - Integrated sharing feature.
+- Recursive upload of folders
 
 # Resources for understanding/developing the script
 The university's campus cloud is based on [Micro Focus Filr](https://www.microfocus.com/de-de/products/filr/) and the API is documented [here](https://www.novell.com/documentation/filr-rest-api/filr-2-devel-r-api/data/cli001.html).

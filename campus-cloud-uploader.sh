@@ -6,6 +6,7 @@
 
 # CREATED:
 # Thomas Roder, 2018.07.05
+# https://github.com/MrTomRod/Campus-Cloud-UniBe-Uploader/
 
 # DEBUGGING:
 # To analyze the output from CURL requests, best store them as a pretty file like this:
@@ -15,12 +16,12 @@
 # https://www.novell.com/documentation/filr-rest-api/filr-2-devel-r-api/data/cli001.html
 
 # HELP MESSAGE:
-display_help() {
+function help() {
   echo "============================================================================="
   echo "Usage: $(basename "$0") -l l_arg [-e e_arg] [-d d_arg]"
   echo
-  echo "Uploads single files to your Campus Cloud (campuscloud.unibe.ch)."
-  echo "If you want to upload multiple files, compress them first:"
+  echo "Upload a file or a folder to your Campus Cloud (campuscloud.unibe.ch)."
+  echo "In order to save space, consider compressing the content:"
   echo "                        zip -r myfolder.zip myfolder"
   echo "                      tar -czf myfolder.tar.gz myfolder"
   echo
@@ -38,6 +39,106 @@ display_help() {
   echo "============================================================================="
 }
 
+# KEY FUNCTIONS:
+
+# Create folder on server.
+# Usage: create_folder <REST endpoint> <folder name>
+# Example: Create folder in the root directory:
+#    create_folder "/self/my_files/library_folders" "folder name"
+#    -> changes global variable $return to the folder ID, e.g. "2200359"
+# Example: Create subfolder:
+#    create_folder "/folders/$return/library_folders" "subfolder name"
+#    -> changes global variable $return to the folder ID, e.g. "2200359"
+function create_folder()
+{
+  # Get arguments:
+  local rest_endpoint=$1
+  local folder_name=$2
+
+  # Create folder.
+  local OUTPUT="$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest$rest_endpoint -X POST -H "Content-Type: application/json" -d '{"title": "'"$folder_name"'"}')"
+
+  # Get the new folder's id, which is necessary to add files to it.
+  local folder_id="$(echo "$OUTPUT" | jq --raw-output '.id')"
+
+  # Confirm folder creation was successful.
+  local uploaded_foldername="$(echo "$OUTPUT" | jq --raw-output '.title' )"
+  if ! [ "$folder_name" == "$uploaded_foldername" ]; then echo "ERROR: No new folder was created on the server!"; exit 1; fi
+
+  return="$folder_id"
+}
+
+# Upload file to server.
+# Usage: upload_file <parent folder ID> <file name>
+# Example: Create file in folder with ID $return:
+#    upload_file "$return" "file"
+function upload_file()
+{
+  # Get arguments:
+  local rest_endpoint="/folders/$1/library_files"
+  local file="$2"
+
+  # Prepare variables.
+  local file_name=$(echo $(basename "$file"))
+  local html_encoded=${file_name// /\%20}  # replace blanks with %20
+
+  # Upload file.
+  local OUTPUT="$(curl -# -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest$rest_endpoint?file_name=$html_encoded -X POST -H "Content-Type: application/octet-stream" --upload-file "$file")"
+
+  # Confirm upload was successful.
+  local uploaded_filename="$(echo $OUTPUT | jq --raw-output '.name' )"
+  if ! [ "$file_name" == "$uploaded_filename" ]; then echo "ERROR: The upload of $file_name FAILED!"; exit 1; fi
+}
+
+# This function uploads each file in a folder. If it finds a folder, it recursively calls itself.
+# Usage: upload_dir <parent folder ID> <folder>
+# Example: Upload folder in parent folder with ID $return:
+#    upload_dir "$return" "folder"
+function upload_dir()
+{
+  local parent_ID=$1
+  local folder=$2
+
+  local folder_name=$(basename "$folder")
+  create_folder "/folders/$parent_ID/library_folders" "$folder_name"
+  local current_folder_id=$return
+
+  for item in "$folder"/*
+    do
+      if [[ -h $item ]]; then
+        echo "SKIPPING SOFTLINK '$item'"
+        let ++lincount
+        continue
+      fi
+
+      if [[ -d $item ]]; then
+        # If the item is a directory, recursively start loop_dir there.
+        echo "DIR: $item"
+        upload_dir "$current_folder_id" "$item"
+        let ++dircount
+        continue
+      fi
+
+      if [[ -f $item ]]; then
+        # If the item is a file...
+        echo "FIL: $item"
+        upload_file "$current_folder_id" "$item"
+        let ++filcount
+        continue
+      fi
+
+      if [[ "$item" == *\* ]]; then
+        # skip this nonsense
+        continue
+      fi
+
+      echo "ERROR HANDLING THIS ITEM: $item"
+      exit 1
+    done
+}
+
+# START THE PROCESS:
+
 # Set default value for $DAYS. (Determines how long the share will last.)
 DAYS=10
 
@@ -47,7 +148,7 @@ while [[ $# -gt 0 ]]; do
 
   case $key in
     -h|--help)
-    display_help
+    help
     exit 0
     ;;
     -l|--location)
@@ -78,7 +179,7 @@ done
 # Check input: Was a correct file location entered? Is $DAYS plausible?
 iserror=false
 if [ -z "${LOCATION}" ]; then echo "Missing parameter: -l"; iserror=true; fi
-if ! [ -f $LOCATION ]; then echo "File does not exist."; iserror=true; fi
+if ! [[ -f "${LOCATION}" || -d "${LOCATION}" ]]; then echo "File/folder does not exist."; iserror=true; fi
 if ! [[ $DAYS =~ ^[0-9]*$ ]] ; then echo "Parameter -d is flawed. Must be positive integer. If d=0, share will never expire."; iserror=true; fi
 
 # Check input: Are emails plausible?
@@ -100,37 +201,37 @@ OUTPUT="$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/)"
 echo $OUTPUT | jq -e '.links' >> /dev/null
 if ! [ ${PIPESTATUS[1]} = 0 ]; then echo "Error: Username AND/OR password incorrect."; exit 1; fi
 
-# Create new folder with date, the uploader's username and random string.
+# Set the top folder's name, suggest it starts with date and time.
 date_string=$(date '+%Y.%m.%d-%H.%M.%S')
-my_username=$(whoami)
-random_salt=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 7 | head -n 1)
-folder_name="${date_string}_${my_username}_${random_salt}"
+read -p "Enter the name of the top folder: " -i "$date_string"_ -e folder_name
+echo
 
-echo "Creating new folder... (${date_string}_${my_username}_${random_salt})"
-OUTPUT="$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/self/my_files/library_folders -X POST -H "Content-Type: application/json" -d '{"title": "'$folder_name'"}')"
+# Create a new top folder.
+create_folder "/self/my_files/library_folders" "$folder_name"
+folder_to_share="$return"
 
-# Get the new folder's id, which is necessary to upload the file later-on.
-folder_id="$(echo $OUTPUT | jq --raw-output '.id')"
+# If the item to upload is a file, simply upload it.
+if [[ -f "${LOCATION}" ]]; then
+  echo "Uploading file..."
+  upload_file "$return" "$LOCATION"
+# If the item to upload is a folder, call the upload_dir function.
+elif [[ -d "${LOCATION}" ]]; then
+  echo "Uploading folder..."
+  dircount=0
+  filcount=0
+  lincount=0
+  upload_dir "$return" "$LOCATION"
+  echo
+  echo "================================================================================"
+  echo "================================================================================"
+  echo "Successful upload!"
+  echo "Total folders: $dircount"
+  echo "Total files:   $filcount"
+  if [ $lincount -ne 0 ]; then echo "Total links:   $lincount (Links were ignored!)"; fi
+else
+  echo "Something unexpected has occurred. The thing you want to upload must be a regular file or folder."
+fi
 
-# Confirm folder creation was successful.
-uploaded_foldername="$(echo $OUTPUT | jq --raw-output '.title' )"
-if [ "$folder_name" == "$uploaded_foldername" ]; then echo "The folder ${date_string}_${my_username}_${random_salt} was successfully created."; else echo "ERROR: No new folder was created on the server!"; exit 1; fi
-
-# Cannot upload files with special characters. Thus, remove them from the upload-filename.
-harmless_file_name=$(echo $(basename "$LOCATION") | tr -cd '[:alnum:].\-_')
-
-# Start upload.
-echo "Uploading $(basename "$LOCATION")..."
-OUTPUT="$(curl -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_id/library_files?file_name=$harmless_file_name -X POST -H "Content-Type: application/octet-stream" --upload-file $LOCATION)"
-
-# Get owning_entity.id, which is necessary to share the file later-on.
-file_id="$(echo $OUTPUT | jq --raw-output '.owning_entity.id' )"
-
-# Confirm upload was successful.
-uploaded_filename="$(echo $OUTPUT | jq --raw-output '.name' )"
-if [ "$harmless_file_name" == "$uploaded_filename" ]; then echo "The file $harmless_file_name was successfully uploaded."; else echo "ERROR: The upload of $(basename "$LOCATION") FAILED!"; exit 1; fi
-
-# Share the file.
 # Set up expiration of share.
 if [ $DAYS -eq 0 ]; then
   sharestring=""
@@ -138,16 +239,17 @@ else
   sharestring=',"days_to_expire":'$DAYS''
 fi
 
+# Share the folder.
 for i in "${email_array[@]}"
   do
-    # Does email $i belong to a regular user? Search for email in database.
+    # Does email $i belong to an existing CampusCloud user? Search for $i in database.
     OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
     user_id="$(echo $OUTPUT | jq '.items | .[0] | .id' )"
 
     # If UserID is a number...
     if [ "$user_id" -eq "$user_id" ] 2>/dev/null; then
       # ...email belongs to regular user.
-      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
       # Confirm the file has been shared.
       recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
@@ -155,11 +257,10 @@ for i in "${email_array[@]}"
 
     else
       # ...email does not belong to external user.
-      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
       # Confirm the file has been shared.
       recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
       if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
-
     fi
   done
