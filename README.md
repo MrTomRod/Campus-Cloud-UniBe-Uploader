@@ -32,6 +32,11 @@ Fedora: `sudo dnf install jq`
 # Resources for understanding/developing the script
 The university's campus cloud is based on [Micro Focus Filr](https://www.microfocus.com/de-de/products/filr/) and the API is documented [here](https://www.novell.com/documentation/filr-rest-api/filr-2-devel-r-api/data/cli001.html).
 
+# Changelog
+1.0: Initial release
+1.1: Added support for external Campus Cloud users
+1.2: Added option to upload folders
+
 # Lincence
     Copyright 2017 IT Services Department, University of Bern, Switzerland
 
