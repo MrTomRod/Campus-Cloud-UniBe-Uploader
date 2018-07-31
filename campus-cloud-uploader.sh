@@ -33,7 +33,7 @@ function help() {
   echo "   -e, --email        email of recipient(s): If multiple, they must be"
   echo "                           separated by comma; e.g., '-e a@x.com,b@x.com'"
   echo "                           (Optional.)"
-  echo "   -d, --days         Days until access expires. (Optional. Default = 10 days)"
+  echo "   -d, --days         days until access expires. (Optional. Default = 10 days)"
   echo "                           0 means share doesn't expire."
   echo "   -h, --help         display this help and exit"
   echo
