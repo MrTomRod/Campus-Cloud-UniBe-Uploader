@@ -25,10 +25,11 @@ function help() {
   echo "                        zip -r myfolder.zip myfolder"
   echo "                      tar -czf myfolder.tar.gz myfolder"
   echo
-  echo "This script also supports sharing the file with others, even outside the uni-"
-  echo "versity. The recipient will receive an email with a link to the Campus Cloud."
+  echo "This script also supports sharing the file/folder with others, even outside"
+  echo "the university. The recipient will receive an email with a link to the Campus"
+  echo "Cloud."
   echo
-  echo "   -l, --location     location of file to be shared."
+  echo "   -l, --location     location of file/folder to be shared."
   echo "   -e, --email        email of recipient(s): If multiple, they must be"
   echo "                           separated by comma; e.g., '-e a@x.com,b@x.com'"
   echo "                           (Optional.)"
