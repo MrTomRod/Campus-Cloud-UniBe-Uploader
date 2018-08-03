@@ -105,37 +105,37 @@ function upload_dir()
   local current_folder_id=$return
 
   for item in "$folder"/*
-    do
-      if [[ -h $item ]]; then
-        echo "SKIPPING SOFTLINK '$item'"
-        let ++lincount
-        continue
-      fi
+  do
+    if [[ -h $item ]]; then
+      echo "SKIPPING SOFTLINK '$item'"
+      let ++lincount
+      continue
+    fi
 
-      if [[ -d $item ]]; then
-        # If the item is a directory, recursively start loop_dir there.
-        echo "DIR: $item"
-        upload_dir "$current_folder_id" "$item"
-        let ++dircount
-        continue
-      fi
+    if [[ -d $item ]]; then
+      # If the item is a directory, recursively start loop_dir there.
+      echo "DIR: $item"
+      upload_dir "$current_folder_id" "$item"
+      let ++dircount
+      continue
+    fi
 
-      if [[ -f $item ]]; then
-        # If the item is a file...
-        echo "FIL: $item"
-        upload_file "$current_folder_id" "$item"
-        let ++filcount
-        continue
-      fi
+    if [[ -f $item ]]; then
+      # If the item is a file...
+      echo "FIL: $item"
+      upload_file "$current_folder_id" "$item"
+      let ++filcount
+      continue
+    fi
 
-      if [[ "$item" == *\* ]]; then
-        # skip this nonsense
-        continue
-      fi
+    if [[ "$item" == *\* ]]; then
+      # skip this nonsense
+      continue
+    fi
 
-      echo "ERROR HANDLING THIS ITEM: $item"
-      exit 1
-    done
+    echo "ERROR HANDLING THIS ITEM: $item"
+    exit 1
+  done
 }
 
 # START THE PROCESS:
@@ -242,26 +242,26 @@ fi
 
 # Share the folder.
 for i in "${email_array[@]}"
-  do
-    # Does email $i belong to an existing CampusCloud user? Search for $i in database.
-    OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
-    user_id="$(echo $OUTPUT | jq '.items | .[0] | .id' )"
+do
+  # Does email $i belong to an existing CampusCloud user? Search for $i in database.
+  OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
+  user_id="$(echo $OUTPUT | jq '.items | .[0] | .id' )"
 
-    # If UserID is a number...
-    if [ "$user_id" -eq "$user_id" ] 2>/dev/null; then
-      # ...email belongs to regular user.
-      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+  # If UserID is a number...
+  if [ "$user_id" -eq "$user_id" ] 2>/dev/null; then
+    # ...email belongs to regular user.
+    OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
-      # Confirm the file has been shared.
-      recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
-      if [ "$user_id" == "$recipient_id" ]; then echo "The file was successfully shared with user $i."; else echo "ERROR: The file was NOT shared with user $i!"; fi
+    # Confirm the file has been shared.
+    recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
+    if [ "$user_id" == "$recipient_id" ]; then echo "The file was successfully shared with user $i."; else echo "ERROR: The file was NOT shared with user $i!"; fi
 
-    else
-      # ...email does not belong to external user.
-      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+  else
+    # ...email does not belong to external user.
+    OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
-      # Confirm the file has been shared.
-      recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
-      if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
-    fi
-  done
+    # Confirm the file has been shared.
+    recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
+    if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
+  fi
+done
