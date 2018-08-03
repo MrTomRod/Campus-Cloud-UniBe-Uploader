@@ -104,8 +104,7 @@ function upload_dir()
   create_folder "/folders/$parent_ID/library_folders" "$folder_name"
   local current_folder_id=$return
 
-  for item in "$folder"/*
-  do
+  for item in "$folder"/*; do
     if [[ -h $item ]]; then
       echo "SKIPPING SOFTLINK '$item'"
       let ++lincount
@@ -241,8 +240,7 @@ else
 fi
 
 # Share the folder.
-for i in "${email_array[@]}"
-do
+for i in "${email_array[@]}"; do
   # Does email $i belong to an existing CampusCloud user? Search for $i in database.
   OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
   user_id="$(echo $OUTPUT | jq '.items | .[0] | .id' )"
