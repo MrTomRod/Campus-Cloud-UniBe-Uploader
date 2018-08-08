@@ -18,7 +18,7 @@
 # HELP MESSAGE:
 function help() {
   echo "============================================================================="
-  echo "Usage: $(basename "$0") -l l_arg [-e e_arg] [-d d_arg]"
+  echo "Usage: $(basename "$0") -l l_arg [-e e_arg] [-d d_arg] [--public-link]"
   echo
   echo "Upload a file or a folder to your Campus Cloud (campuscloud.unibe.ch)."
   echo "In order to save space, consider compressing the content:"
@@ -27,12 +27,14 @@ function help() {
   echo
   echo "This script also supports sharing the file/folder with others, even outside"
   echo "the university. The recipient will receive an email with a link to the Campus"
-  echo "Cloud."
+  echo "Cloud. Alternatively, a public download link can be generated (files only)."
   echo
   echo "   -l, --location     location of file/folder to be shared."
   echo "   -e, --email        email of recipient(s): If multiple, they must be"
   echo "                           separated by comma; e.g., '-e a@x.com,b@x.com'"
   echo "                           (Optional.)"
+  echo "   -p, --public-link  return a public link. Takes no arguments. Only works for"
+  echo "                      files. (Optional.)"
   echo "   -d, --days         days until access expires. (Optional. Default = 10 days)"
   echo "                           0 means share doesn't expire."
   echo "   -h, --help         display this help and exit"
@@ -46,10 +48,10 @@ function help() {
 # Usage: create_folder <REST endpoint> <folder name>
 # Example: Create folder in the root directory:
 #    create_folder "/self/my_files/library_folders" "folder name"
-#    -> changes global variable $return to the folder ID, e.g. "2200359"
+#    -> changes global variable $return to the folder ID, e.g. "1234567"
 # Example: Create subfolder:
 #    create_folder "/folders/$return/library_folders" "subfolder name"
-#    -> changes global variable $return to the folder ID, e.g. "2200359"
+#    -> changes global variable $return to the folders ID, e.g. "1234567"
 function create_folder()
 {
   # Get arguments:
@@ -73,6 +75,7 @@ function create_folder()
 # Usage: upload_file <parent folder ID> <file name>
 # Example: Create file in folder with ID $return:
 #    upload_file "$return" "file"
+#    -> changes global variable $file_id to the files ID, e.g. "12345678"
 function upload_file()
 {
   # Get arguments:
@@ -89,6 +92,9 @@ function upload_file()
   # Confirm upload was successful.
   local uploaded_filename="$(echo $OUTPUT | jq --raw-output '.name' )"
   if ! [ "$file_name" == "$uploaded_filename" ]; then echo "ERROR: The upload of $file_name FAILED!"; exit 1; fi
+
+  # Return file ID.
+  file_id="$(echo "$OUTPUT" | jq --raw-output '.owning_entity.id')"
 }
 
 # This function uploads each file in a folder. If it finds a folder, it recursively calls itself.
@@ -161,13 +167,18 @@ while [[ $# -gt 0 ]]; do
     shift # past argument
     shift # past value
     ;;
+    -p|--public-link)
+    LINK=true
+    shift # past argument
+    # do not shift past value because --public-link doesn't have a value.
+    ;;
     -d|--days)
     DAYS="$2"
     shift # past argument
     shift # past value
     ;;
     *)    # unknown option
-    echo "ERROR: UNKNOWN OPTION. The only legal options are -l, -e, -d and -h. For further explanation, type '$(basename "$0") --help'."
+    echo "ERROR: UNKNOWN OPTION. The only legal options are -l, -e, -p, -d and -h. For further explanation, type '$(basename "$0") --help'."
     echo
     echo "This has caused the error: $1"
     exit 1
@@ -214,9 +225,26 @@ folder_to_share="$return"
 if [[ -f "${LOCATION}" ]]; then
   echo "Uploading file..."
   upload_file "$return" "$LOCATION"
+
+  # Create a publicly accessible link to download the file if option --public-link is active.
+  if [ $LINK ]; then
+    OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=false -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"public_link"'$sharestring'}}')
+    share_link=$(echo $OUTPUT | jq '.permalinks | .[0] | .href' )
+    share_link=${share_link:1:-1}
+    # This public link doesn't expire. Unless -d is set to 0, the share must be modified.
+    if ! [ $DAYS -eq 0 ]; then
+      share_id="$(echo $OUTPUT | jq '.id' )"
+      OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/shares/$share_id -H "Content-Type: application/json" -X POST -d '{"days_to_expire":'$DAYS'}')
+    fi
+    echo "Public link: $share_link"
+  fi
+
 # If the item to upload is a folder, call the upload_dir function.
 elif [[ -d "${LOCATION}" ]]; then
   echo "Uploading folder..."
+  if [ $LINK ]; then
+    echo "Note: The -p/--public-link parameter has no effect when uploading folders. It only works for links."
+  fi
   dircount=0
   filcount=0
   lincount=0
@@ -239,7 +267,7 @@ else
   sharestring=',"days_to_expire":'$DAYS''
 fi
 
-# Share the folder.
+# Share the top folder.
 for i in "${email_array[@]}"; do
   # Does email $i belong to an existing CampusCloud user? Search for $i in database.
   OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
@@ -250,7 +278,7 @@ for i in "${email_array[@]}"; do
     # ...email belongs to regular user.
     OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
-    # Confirm the file has been shared.
+    # Confirm the folder has been shared.
     recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
     if [ "$user_id" == "$recipient_id" ]; then echo "The file was successfully shared with user $i."; else echo "ERROR: The file was NOT shared with user $i!"; fi
 
