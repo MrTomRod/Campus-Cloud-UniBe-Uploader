@@ -13,6 +13,10 @@ The script also supports sharing the uploaded file(s) with others, even users ou
 
 The above code will upload the file and send a notification mail to u1@example.com and u2@example.com. If these mail addresses aren't linked to a campus account, the receivers will first have to create a guest account before being able to access the file. The receivers will be able to see the file for 30 days, as determined by the parameter `-d`. (However, it will **not** automatically be deleted from the uploaders Campus Cloud.)
 
+`./campus-cloud-uploader.sh -l file.zip --public-link`
+
+This code will upload the file and return a publicly accessible hyperlink to the file that will work for 10 days. The `-p/--public-link` option only works for files, not folders!
+
 If `-d` is not specified, the default value is 10 days. `-d 0` will lead to a share that never expires.
 
 # Requirements
@@ -26,7 +30,7 @@ Fedora: `sudo dnf install jq`
 # Advantages of the script
 - Doesn't require a browser to upload. Very convenient and very fast on clusters. :)
 - Requires only elementary things like bash, curl and jq.
-- Integrated sharing feature.
+- Integrated sharing feature. Different mechanisms for external and internal users are implemented, as well as the creation of public links.
 - Recursive upload of folders
 
 # Resources for understanding/developing the script
@@ -36,6 +40,7 @@ The university's campus cloud is based on [Micro Focus Filr](https://www.microfo
     v1.0: Initial release
     v1.1: Files can now be shared with anyone, whether or not the person has a CampusCloud account or belongs to the university
     v1.2: Added option to upload folders
+    v1.3: Added option to create public links
 
 # Lincence
     Copyright 2017 IT Services Department, University of Bern, Switzerland
