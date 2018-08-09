@@ -154,36 +154,36 @@ while [[ $# -gt 0 ]]; do
 
   case $key in
     -h|--help)
-    help
-    exit 0
-    ;;
+      help
+      exit 0
+      ;;
     -l|--location)
-    LOCATION="$2"
-    shift # past argument
-    shift # past value
-    ;;
+      LOCATION="$2"
+      shift # past argument
+      shift # past value
+      ;;
     -e|--email)
-    EMAIL="$2"
-    shift # past argument
-    shift # past value
-    ;;
+      EMAIL="$2"
+      shift # past argument
+      shift # past value
+      ;;
     -p|--public-link)
-    LINK=true
-    shift # past argument
-    # do not shift past value because --public-link doesn't have a value.
-    ;;
+      LINK=true
+      shift # past argument
+      # do not shift past value because --public-link doesn't have a value.
+      ;;
     -d|--days)
-    DAYS="$2"
-    shift # past argument
-    shift # past value
-    ;;
+      DAYS="$2"
+      shift # past argument
+      shift # past value
+      ;;
     *)    # unknown option
-    echo "ERROR: UNKNOWN OPTION. The only legal options are -l, -e, -p, -d and -h. For further explanation, type '$(basename "$0") --help'."
-    echo
-    echo "This has caused the error: $1"
-    exit 1
-    shift # past argument
-    ;;
+      echo "ERROR: UNKNOWN OPTION. The only legal options are -l, -e, -p, -d and -h. For further explanation, type '$(basename "$0") --help'."
+      echo
+      echo "This has caused the error: $1"
+      exit 1
+      shift # past argument
+      ;;
   esac
 done
 
