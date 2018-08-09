@@ -58,17 +58,17 @@ function create_folder()
 	local rest_endpoint=$1
 	local folder_name=$2
 
-  # Create folder.
-  local OUTPUT="$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest$rest_endpoint -X POST -H "Content-Type: application/json" -d '{"title": "'"$folder_name"'"}')"
+	# Create folder.
+	local OUTPUT="$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest$rest_endpoint -X POST -H "Content-Type: application/json" -d '{"title": "'"$folder_name"'"}')"
 
-  # Get the new folder's id, which is necessary to add files to it.
-  local folder_id="$(echo "$OUTPUT" | jq --raw-output '.id')"
+	# Get the new folder's id, which is necessary to add files to it.
+	local folder_id="$(echo "$OUTPUT" | jq --raw-output '.id')"
 
-  # Confirm folder creation was successful.
-  local uploaded_foldername="$(echo "$OUTPUT" | jq --raw-output '.title' )"
-  if ! [ "$folder_name" == "$uploaded_foldername" ]; then echo "ERROR: No new folder was created on the server!"; exit 1; fi
+	# Confirm folder creation was successful.
+	local uploaded_foldername="$(echo "$OUTPUT" | jq --raw-output '.title' )"
+	if ! [ "$folder_name" == "$uploaded_foldername" ]; then echo "ERROR: No new folder was created on the server!"; exit 1; fi
 
-  return="$folder_id"
+	return="$folder_id"
 }
 
 # Upload file to server.
@@ -82,19 +82,19 @@ function upload_file()
 	local rest_endpoint="/folders/$1/library_files"
 	local file="$2"
 
-  # Prepare variables.
-  local file_name=$(echo $(basename "$file"))
-  local html_encoded=${file_name// /\%20}  # replace blanks with %20
+	# Prepare variables.
+	local file_name=$(echo $(basename "$file"))
+	local html_encoded=${file_name// /\%20}  # replace blanks with %20
 
-  # Upload file.
-  local OUTPUT="$(curl -# -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest$rest_endpoint?file_name=$html_encoded -X POST -H "Content-Type: application/octet-stream" --upload-file "$file")"
+	# Upload file.
+	local OUTPUT="$(curl -# -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest$rest_endpoint?file_name=$html_encoded -X POST -H "Content-Type: application/octet-stream" --upload-file "$file")"
 
-  # Confirm upload was successful.
-  local uploaded_filename="$(echo $OUTPUT | jq --raw-output '.name' )"
-  if ! [ "$file_name" == "$uploaded_filename" ]; then echo "ERROR: The upload of $file_name FAILED!"; exit 1; fi
+	# Confirm upload was successful.
+	local uploaded_filename="$(echo $OUTPUT | jq --raw-output '.name' )"
+	if ! [ "$file_name" == "$uploaded_filename" ]; then echo "ERROR: The upload of $file_name FAILED!"; exit 1; fi
 
-  # Return file ID.
-  file_id="$(echo "$OUTPUT" | jq --raw-output '.owning_entity.id')"
+	# Return file ID.
+	file_id="$(echo "$OUTPUT" | jq --raw-output '.owning_entity.id')"
 }
 
 # This function uploads each file in a folder. If it finds a folder, it recursively calls itself.
@@ -154,36 +154,36 @@ while [[ $# -gt 0 ]]; do
 
 	case $key in
 		-h|--help)
-			help
-			exit 0
-			;;
+		help
+		exit 0
+		;;
 		-l|--location)
-			LOCATION="$2"
-			shift # past argument
-			shift # past value
-			;;
+		LOCATION="$2"
+		shift # past argument
+		shift # past value
+		;;
 		-e|--email)
-			EMAIL="$2"
-			shift # past argument
-			shift # past value
-			;;
+		EMAIL="$2"
+		shift # past argument
+		shift # past value
+		;;
 		-p|--public-link)
-			LINK=true
-			shift # past argument
-			# do not shift past value because --public-link doesn't have a value.
-			;;
+		LINK=true
+		shift # past argument
+		# do not shift past value because --public-link doesn't have a value.
+		;;
 		-d|--days)
-			DAYS="$2"
-			shift # past argument
-			shift # past value
-			;;
+		DAYS="$2"
+		shift # past argument
+		shift # past value
+		;;
 		*)    # unknown option
-			echo "ERROR: UNKNOWN OPTION. The only legal options are -l, -e, -p, -d and -h. For further explanation, type '$(basename "$0") --help'."
-			echo
-			echo "This has caused the error: $1"
-			exit 1
-			shift # past argument
-			;;
+		echo "ERROR: UNKNOWN OPTION. The only legal options are -l, -e, -p, -d and -h. For further explanation, type '$(basename "$0") --help'."
+		echo
+		echo "This has caused the error: $1"
+		exit 1
+		shift # past argument
+		;;
 	esac
 done
 
@@ -226,20 +226,20 @@ if [[ -f "${LOCATION}" ]]; then
 	echo "Uploading file..."
 	upload_file "$return" "$LOCATION"
 
-  # Create a publicly accessible link to download the file if option --public-link is active.
-  if [ $LINK ]; then
-	  OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=false -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"public_link"'$sharestring'}}')
-	  share_link=$(echo $OUTPUT | jq '.permalinks | .[0] | .href' )
-	  share_link=${share_link:1:-1}
-	  # This public link doesn't expire. Unless -d is set to 0, the share must be modified.
-	  if ! [ $DAYS -eq 0 ]; then
-		  share_id="$(echo $OUTPUT | jq '.id' )"
-		  OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/shares/$share_id -H "Content-Type: application/json" -X POST -d '{"days_to_expire":'$DAYS'}')
-	  fi
-	  echo "Public link: $share_link"
-  fi
+	# Create a publicly accessible link to download the file if option --public-link is active.
+	if [ $LINK ]; then
+		OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folder_entries/$file_id/shares?notify=false -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"public_link"'$sharestring'}}')
+		share_link=$(echo $OUTPUT | jq '.permalinks | .[0] | .href' )
+		share_link=${share_link:1:-1}
+		# This public link doesn't expire. Unless -d is set to 0, the share must be modified.
+		if ! [ $DAYS -eq 0 ]; then
+			share_id="$(echo $OUTPUT | jq '.id' )"
+			OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/shares/$share_id -H "Content-Type: application/json" -X POST -d '{"days_to_expire":'$DAYS'}')
+		fi
+		echo "Public link: $share_link"
+	fi
 
-# If the item to upload is a folder, call the upload_dir function.
+	# If the item to upload is a folder, call the upload_dir function.
 elif [[ -d "${LOCATION}" ]]; then
 	echo "Uploading folder..."
 	if [ $LINK ]; then
@@ -273,21 +273,21 @@ for i in "${email_array[@]}"; do
 	OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/principals?keyword=$i)
 	user_id="$(echo $OUTPUT | jq '.items | .[0] | .id' )"
 
-  # If UserID is a number...
-  if [ "$user_id" -eq "$user_id" ] 2>/dev/null; then
-	  # ...email belongs to regular user.
-	  OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+	# If UserID is a number...
+	if [ "$user_id" -eq "$user_id" ] 2>/dev/null; then
+		# ...email belongs to regular user.
+		OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"user","id":"'"$user_id"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
-    # Confirm the folder has been shared.
-    recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
-    if [ "$user_id" == "$recipient_id" ]; then echo "The file was successfully shared with user $i."; else echo "ERROR: The file was NOT shared with user $i!"; fi
+		# Confirm the folder has been shared.
+		recipient_id="$(echo $OUTPUT | jq --raw-output '.recipient.id' )"
+		if [ "$user_id" == "$recipient_id" ]; then echo "The file was successfully shared with user $i."; else echo "ERROR: The file was NOT shared with user $i!"; fi
 
-else
-	# ...email does not belong to external user.
-	OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
+	else
+		# ...email does not belong to external user.
+		OUTPUT=$(curl -s -k -u $USERNAME:$PASSWORD https://campuscloud.unibe.ch/rest/folders/$folder_to_share/shares?notify=true -H "Content-Type: application/json" -X POST -d '{"recipient":{"type":"external_user","email":"'"$i"'"},"access":{"role":"VIEWER"}'$sharestring'}}')
 
-    # Confirm the file has been shared.
-    recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
-    if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
-fi
+		# Confirm the file has been shared.
+		recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
+		if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
+	fi
 done
