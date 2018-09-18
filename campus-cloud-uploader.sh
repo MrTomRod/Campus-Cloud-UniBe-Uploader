@@ -1,5 +1,5 @@
 #!/bin/bash
-# VERSION: 1.3
+# VERSION: 1.3.1
 
 # REQUIREMENTS:
 # jq (JSON parser)
@@ -288,6 +288,6 @@ for i in "${email_array[@]}"; do
 
 		# Confirm the file has been shared.
 		recipient_email="$(echo $OUTPUT | jq --raw-output '.recipient.email' )"
-		if [ "$i" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
+		if [ "${i,,}" == "$recipient_email" ]; then echo "The file was successfully shared with external $i."; else echo "ERROR: The file was NOT shared with external $i!"; fi
 	fi
 done
